@@ -1,0 +1,12 @@
+USER ID OF TRIGGER FORM SUBMISSION,,,ALL PROVIDER ACCOUNTS,,
+"Form, Field",Item,Match to,Item,Form,Note
+"Form 38, Field 951",Business's Annual GR,included in:,Preferred Customer Annual GR,"Form 38, Field 814",The business requesting RFPs meets the Providers preference on Annual GR
+"Form 38, Field 550",# business employees,included in:,Preferred Customer # employees,"Form 38, Field 812",The business requesting RFPs meets the Providers preference on # employees in the business
+"Form 38, Field 551",Business ownership,included in OR equals:,Preferred Customer ownership,"Form 38, Field 813 OR Form 38, Field 813 = ""No Preference""",The business requesting RFPs meets the Providers preference on the ownership of the business
+"Form 38, Field 569 OR Form 38, Field 552",Business headquarters state OR Business office States,included in,Preferred Customer Location,"Form 38, Field 807",The business requesting RFPs meets the Providers preference on the location of the business
+"Form 38, Field 559",Legal Structure,included in:,Preferred Customer Legal Structure,"Form 38, Field 808",The business requesting RFPs meets the Providers preference on the legal structure of the business
+"Form 38, Field 560",Tax Form filing,included in:,Preferred Customer Tax Filing,"Form 38, Field 809",The business requesting RFPs meets the Providers preference on the tax structure of the business
+"Form 38, Field 952",Preferred Provider years in business,includes:,Provider years in business,"Form 38, Field 792",The Provider meets the requirement of the Business's preference on # years the Provider has been in business
+"Form 38, Field 556",Preferred Provider # of employees,includes:,Provider # of employees,"Form 38, Field 793",The Provider meets the requirement of the Business's preference on # employees in the Provider
+"Form 38, Field 557",Preferred Provider ownership,"equals ""No Preference"" OR includes:",Provider ownership,"Form 38, Field 794",The Provider meets the requirement of the Business's preference on ownership of the Provider
+"Form 38, Field 558",Preferred Provider location,includes:,"Provider HQ, Provider offices","Form 38, Field 795 or Form 38, Field 796",The Provider meets the requirement of the Business's preference on location of the Provider
