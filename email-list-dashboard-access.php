@@ -79,6 +79,7 @@ add_action('admin_menu', function () {
                                 <div class="inside">
                                     <form>
                                         <a href="https://docs.google.com/document/d/1pnufgElQvNdisyInMSZJDJG30T8LmkRhGW-BewgNmo0/edit">Detail Workflow</a>
+                                        <input type="submit" name="recalculate" class="button button-primary" value="Recalculate All">
                                     </form>
                                 </div>
                             </div>
@@ -123,6 +124,10 @@ function elda($values)
     if ('Single Service' !== $values['item_meta'][880]) return $values;
 
     $provider_entries = elda_collect_entries(31, '727, 728, 873, 870, 729');
+    echo json_encode($provider_entries);
+    $submitter_profile = elda_get_submitter_profile($values);
+    $sellers_profiles = elda_collect_entries(38, '563, 1422, 1421, 2535, 1858');
+
     $matching_provider_entry_ids = [];
     elda_service_subscribers_1a($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
     elda_custom_matched_1c($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
@@ -131,14 +136,31 @@ function elda($values)
     $values['item_meta'][2594] = elda_check_2594_1f();
     $values['item_meta'][1532] = elda_extract_user_ids($provider_entries, $matching_provider_entry_ids);
 
-    $seller_entries = elda_collect_entries(38, '563, 1422, 1421, 2535, 1858');
     $matching_seller_entry_ids = [];
-    elda_seller_service_subscriber_2a($values['item_meta'], $seller_entries, $matching_seller_entry_ids);
-    $values['item_meta'][1530] = seller_matching_seller_service_subscriber_2b($seller_entries, $matching_seller_entry_ids);
+    elda_seller_service_subscriber_2a($values['item_meta'], $sellers_profiles, $matching_seller_entry_ids);
+    $values['item_meta'][1530] = seller_matching_seller_service_subscriber_2b($sellers_profiles, $matching_seller_entry_ids);
     $values['item_meta'][2595] = seller_matching_check_2595_2c();
-    $values['item_meta'][2536] = elda_extract_user_ids($seller_entries, $matching_seller_entry_ids);
+    $values['item_meta'][2536] = elda_extract_user_ids($sellers_profiles, $matching_seller_entry_ids);
 
     return $values;
+}
+
+function elda_get_submitter_profile($values)
+{
+    global $wpdb;
+    $answers = $wpdb->get_results($wpdb->prepare("
+        SELECT
+            field_id,
+            meta_value
+        FROM
+            wp_frm_items
+            LEFT JOIN wp_frm_item_metas ON wp_frm_items.id = wp_frm_item_metas.item_id
+        WHERE wp_frm_items.form_id = 38
+        AND wp_frm_items.user_id = %d
+    ", $values['frm_user_id']));
+    $profile = [];
+    foreach ($answers as $answer) $profile[$answer->field_id] = $answer->meta_value;
+    return $profile;
 }
 
 function elda_collect_entries($form_id, $field_ids)
@@ -253,7 +275,7 @@ function elda_check_2594_1f()
     return ["Yes"];
 }
 
-function elda_seller_service_subscriber_2a($submitted, $seller_entries, &$matching_seller_entry_ids)
+function elda_seller_service_subscriber_2a($submitted, $sellers_profiles, &$matching_seller_entry_ids)
 {
     global $wpdb;
     $sellers_1841 = $wpdb->get_var($wpdb->prepare("
@@ -264,10 +286,10 @@ function elda_seller_service_subscriber_2a($submitted, $seller_entries, &$matchi
 	", $submitted[877], 1841));
     foreach (array_unique(array_map(function ($answers) {
         return $answers->id;
-    }, $seller_entries)) as $seller_entry_id) {
+    }, $sellers_profiles)) as $seller_entry_id) {
 
         $is_1422_match_883 = false;
-        $answer_1422 = array_values(array_filter($seller_entries, function ($answers) use ($seller_entry_id) {
+        $answer_1422 = array_values(array_filter($sellers_profiles, function ($answers) use ($seller_entry_id) {
             return $seller_entry_id == $answers->id && 1422 == $answers->field_id;
         }));
         if (isset($answer_1422[0])) {
@@ -280,7 +302,7 @@ function elda_seller_service_subscriber_2a($submitted, $seller_entries, &$matchi
         }
 
         $is_1421_match_884_or_885 = false;
-        $answer_1421 = array_values(array_filter($seller_entries, function ($answers) use ($seller_entry_id) {
+        $answer_1421 = array_values(array_filter($sellers_profiles, function ($answers) use ($seller_entry_id) {
             return $seller_entry_id == $answers->id && 1421 == $answers->field_id;
         }));
         if (isset($answer_1421[0])) $answer_1421 = @unserialize($answer_1421[0]->meta_value) ? unserialize($answer_1421[0]->meta_value) : $answer_1421[0]->meta_value;
@@ -292,7 +314,7 @@ function elda_seller_service_subscriber_2a($submitted, $seller_entries, &$matchi
 
         $is_1858_match_1841 = false;
         if ($sellers_1841) {
-            $answer_1858 = array_values(array_filter($seller_entries, function ($answers) use ($seller_entry_id) {
+            $answer_1858 = array_values(array_filter($sellers_profiles, function ($answers) use ($seller_entry_id) {
                 return $seller_entry_id == $answers->id && 1858 == $answers->field_id;
             }));
             if (isset($answer_1858[0])) $is_1858_match_1841 = $sellers_1841 == $answer_1858[0]->meta_value;
@@ -302,11 +324,11 @@ function elda_seller_service_subscriber_2a($submitted, $seller_entries, &$matchi
     }
 }
 
-function seller_matching_seller_service_subscriber_2b($seller_entries, $matching_seller_entry_ids)
+function seller_matching_seller_service_subscriber_2b($sellers_profiles, $matching_seller_entry_ids)
 {
     $seller_emails = [];
     foreach ($matching_seller_entry_ids as $matching_entry_id) {
-        $email = array_values(array_filter($seller_entries, function ($seller_entry) use ($matching_entry_id) {
+        $email = array_values(array_filter($sellers_profiles, function ($seller_entry) use ($matching_entry_id) {
             return $matching_entry_id == $seller_entry->id && 2535 == $seller_entry->field_id;
         }));
         if (isset($email[0])) $seller_emails[] = $email[0]->meta_value;
