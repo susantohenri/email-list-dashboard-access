@@ -20,6 +20,8 @@
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
+use ACF\Brumann\Polyfill\Unserialize;
+
 define('ELDA_CSV_FILE_SAMPLE', plugin_dir_url(__FILE__) . 'elda-sample.csv');
 define('ELDA_CSV_FILE_ACTIVE', plugin_dir_url(__FILE__) . 'elda-active.csv');
 define('ELDA_CSV_FILE', plugin_dir_path(__FILE__) . 'elda-active.csv');
@@ -204,23 +206,104 @@ function elda_service_subscribers_1a($submitted, $provider_entries, &$matching_p
     }
 }
 
-function elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids)
+function elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, &$matching_provider_entry_ids)
 {
-    /*
-        lines = read csv()
-        matching_provider_entry_ids = array_values array_filter matching_provider_entry_ids as matching_provider_entry_id use (provider_entries, $seller_profiles, $submitter_profile, lines)
-        by comparing seller_profile & submitter_profile
-        - is_all_matched = false
-        - get user id (matching_provider_entry_id, provider_entries)
-        - seller_profile = filter seller_profiles by user id
-        - loop csv lines as line
-            - is_all_matched &= elda_service_subscribers_1b_compare_profile(line, seller_profile, submitter_profile)
-        - return is_all_matched
-    */
+    if (count($submitter_profile) < 1) {
+        $matching_provider_entry_ids = [];
+        return false;
+    }
+    if (!file_exists(ELDA_CSV_FILE)) return true;
+    $lines = [];
+    if (($open = fopen(ELDA_CSV_FILE, 'r')) !== FALSE) {
+        while (($data = fgetcsv($open, 100000, ",")) !== FALSE) $lines[] = $data;
+        fclose($open);
+    }
+    unset($lines[0]); // remove header
+    unset($lines[1]); // remove header
+    $lines = array_values($lines);
+
+    $matching_provider_entry_ids = array_values(array_filter(
+        $matching_provider_entry_ids,
+        function ($provider_entry_id) use ($provider_entries, $seller_profiles, $lines, $submitter_profile) {
+
+            $seller_id = elda_service_subscribers_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id);
+            if (!$seller_id) return false;
+
+            $seller_profile = array_values(array_filter($seller_profiles, function ($profile) use ($seller_id) {
+                return $profile->user_id == $seller_id;
+            }));
+            if (count($seller_profile) < 1) return false;
+
+            return elda_service_subscribers_1b_compare_profile($lines, $seller_profile, $submitter_profile);
+        }
+    ));
 }
 
-function elda_service_subscribers_1b_compare_profile($formula, $seller_profile, $submitter_profile)
+function elda_service_subscribers_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id)
 {
+    $user_id = false;
+    $matching_answers = array_values(array_filter($provider_entries, function ($answer) use ($provider_entry_id) {
+        return $answer->id === $provider_entry_id;
+    }));
+    if (isset($matching_answers[0])) $user_id = $matching_answers[0]->user_id;
+    return $user_id;
+}
+
+function elda_service_subscribers_1b_compare_profile($lines, $seller_profile, $submitter_profile)
+{
+    $is_all_matched = true;
+    foreach ($lines as $col) {
+
+        // henrisusanto, todo: get field id by explode 'field', & accomodate OR in field column
+
+        // collect submitter's answerrong formula
+        $submitter_field_id = end(explode(' ', $col[0]));
+        if (!(int) $submitter_field_id) continue; // wrong formula
+
+        $submitter_answer = array_values(array_filter($submitter_profile, function ($answer) use ($submitter_field_id) {
+            return $answer->field_id == $submitter_field_id;
+        }));
+        if (!isset($submitter_answer[0])) { // has no answer
+            $is_all_matched &= false;
+            continue;
+        }
+        $submitter_field_value = @unserialize($submitter_answer[0]->meta_value) ? unserialize($submitter_answer[0]->meta_value) : $submitter_answer[0]->meta_value;
+
+        // collect seller's answer
+        $seller_field_id = end(explode(' ', $col[4]));
+        if (!(int) $seller_field_id) continue; // wrong formula
+
+        $seller_answer = array_values(array_filter($seller_profile, function ($answer) use ($seller_field_id) {
+            return $answer->field_id == $seller_field_id;
+        }));
+        if (!isset($seller_answer[0])) { // has no answer
+            $is_all_matched &= false;
+            continue;
+        }
+        $seller_field_value = @unserialize($seller_answer[0]->meta_value) ? unserialize($seller_answer[0]->meta_value) : $seller_answer[0]->meta_value;
+
+        echo json_encode([$submitter_field_value, $seller_field_value]) . '<br>';
+        switch ($col[2]) {
+            case 'included in:':
+                $seller_field_value = is_array($seller_field_value) ? $seller_field_value : [$seller_field_value];
+                $is_all_matched &= in_array("No Preference", $seller_field_value) || in_array($submitter_field_value, $seller_field_value);
+                break;
+            case 'includes:':
+                $submitter_field_value = is_array($submitter_field_value) ? $submitter_field_value : [$submitter_field_value];
+                $is_all_matched &= in_array("No Preference", $submitter_field_value) || in_array($seller_field_value, $submitter_field_value);
+                break;
+            case 'included in OR equals:':
+                $seller_field_value = is_array($seller_field_value) ? $seller_field_value : [$seller_field_value];
+                $is_all_matched &= in_array("No Preference", $seller_field_value) || in_array($submitter_field_value, $seller_field_value) || $submitter_field_value == $seller_field_value;
+                break;
+            case 'equals "No Preference" OR includes:':
+                break;
+            default: // wrong formula
+                $is_all_matched &= false;
+                break;
+        }
+    }
+    return $is_all_matched;
 }
 
 function elda_custom_matched_1c($submitted, $provider_entries, &$matching_provider_entry_ids)
