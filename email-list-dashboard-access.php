@@ -253,57 +253,54 @@ function elda_service_subscribers_1b_compare_profile($lines, $seller_profile, $s
 {
     $is_all_matched = true;
     foreach ($lines as $col) {
+        $submitter_profile_value = elda_service_subscribers_1b_get_profile_value($col[0], $submitter_profile);
+//         $seller_profile_value = elda_service_subscribers_1b_get_profile_value($col[0], $seller_profile);
 
-        // henrisusanto, todo: get field id by explode 'field', & accomodate OR in field column
-
-        // collect submitter's answerrong formula
-        $submitter_field_id = end(explode(' ', $col[0]));
-        if (!(int) $submitter_field_id) continue; // wrong formula
-
-        $submitter_answer = array_values(array_filter($submitter_profile, function ($answer) use ($submitter_field_id) {
-            return $answer->field_id == $submitter_field_id;
-        }));
-        if (!isset($submitter_answer[0])) { // has no answer
-            $is_all_matched &= false;
-            continue;
-        }
-        $submitter_field_value = @unserialize($submitter_answer[0]->meta_value) ? unserialize($submitter_answer[0]->meta_value) : $submitter_answer[0]->meta_value;
-
-        // collect seller's answer
-        $seller_field_id = end(explode(' ', $col[4]));
-        if (!(int) $seller_field_id) continue; // wrong formula
-
-        $seller_answer = array_values(array_filter($seller_profile, function ($answer) use ($seller_field_id) {
-            return $answer->field_id == $seller_field_id;
-        }));
-        if (!isset($seller_answer[0])) { // has no answer
-            $is_all_matched &= false;
-            continue;
-        }
-        $seller_field_value = @unserialize($seller_answer[0]->meta_value) ? unserialize($seller_answer[0]->meta_value) : $seller_answer[0]->meta_value;
-
-        echo json_encode([$submitter_field_value, $seller_field_value]) . '<br>';
-        switch ($col[2]) {
-            case 'included in:':
-                $seller_field_value = is_array($seller_field_value) ? $seller_field_value : [$seller_field_value];
-                $is_all_matched &= in_array("No Preference", $seller_field_value) || in_array($submitter_field_value, $seller_field_value);
-                break;
-            case 'includes:':
-                $submitter_field_value = is_array($submitter_field_value) ? $submitter_field_value : [$submitter_field_value];
-                $is_all_matched &= in_array("No Preference", $submitter_field_value) || in_array($seller_field_value, $submitter_field_value);
-                break;
-            case 'included in OR equals:':
-                $seller_field_value = is_array($seller_field_value) ? $seller_field_value : [$seller_field_value];
-                $is_all_matched &= in_array("No Preference", $seller_field_value) || in_array($submitter_field_value, $seller_field_value) || $submitter_field_value == $seller_field_value;
-                break;
-            case 'equals "No Preference" OR includes:':
-                break;
-            default: // wrong formula
-                $is_all_matched &= false;
-                break;
-        }
+//         switch ($col[2]) {
+//             case 'included in:':
+//             case 'included in OR equals:':
+//                 $submitter_profile_value = elda_service_subscribers_1b_array_string_converter($submitter_profile_value, 'string');
+//                 $seller_profile_value = elda_service_subscribers_1b_array_string_converter($seller_profile_value, 'array');
+//                 $is_all_matched &= in_array("No Preference", $seller_profile_value) || in_array($submitter_profile_value, $seller_profile_value);
+//                 break;
+//             case 'includes:':
+//             case 'equals "No Preference" OR includes:':
+//                 $submitter_profile_value = elda_service_subscribers_1b_array_string_converter($submitter_profile_value, 'array');
+//                 $seller_profile_value = elda_service_subscribers_1b_array_string_converter($seller_profile_value, 'string');
+//                 $is_all_matched &= in_array("No Preference", $submitter_profile_value) || in_array($seller_profile_value, $submitter_profile_value);
+//                 break;
+//             default: // wrong formula
+//                 $is_all_matched &= false;
+//                 break;
+//         }
     }
     return $is_all_matched;
+}
+
+function elda_service_subscribers_1b_get_profile_value($formula, $profile)
+{
+    $field_value = [];
+    $field_ids = array_unique(array_map(function ($splitted_formula) {
+        echo 'henri <br>';
+        return explode(' ', explode('field', $splitted_formula)[1])[1];
+    }, explode(' or ', strtolower($formula))));
+    if (count($field_ids) < 1) return $field_value;
+
+    // $answers = array_values(array_filter($profile, function ($answer) use ($field_ids) {
+    //     return in_array($answer->field_id, $field_ids);
+    // }));
+
+    // foreach ($answers as $answer) {
+    //     if (@unserialize($answer[0]->meta_value)) $field_value = array_merge($field_value, unserialize($answer[0]->meta_value));
+    //     else $field_value[] = $answer[0]->meta_value;
+    // }
+    return $field_value;
+}
+
+function elda_service_subscribers_1b_array_string_converter($value, $convertedTo)
+{
+    if ('array' === $convertedTo) return is_array($value) ? $value : [$value];
+    else if ('string' === $convertedTo) return is_array($value) ? $value[0] : $value;
 }
 
 function elda_custom_matched_1c($submitted, $provider_entries, &$matching_provider_entry_ids)
