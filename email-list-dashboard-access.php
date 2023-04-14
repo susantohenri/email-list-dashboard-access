@@ -35,6 +35,33 @@ add_action('admin_menu', function () {
                 move_uploaded_file($_FILES[ELDA_CSV_FILE_SUBMIT]['tmp_name'], ELDA_CSV_FILE);
                 update_option(ELDA_LATEST_CSV_OPTION, $_FILES[ELDA_CSV_FILE_SUBMIT]['name']);
             }
+        } else if (isset($_POST['recalculate'])) {
+            global $wpdb;
+            $answers = $wpdb->get_results($wpdb->prepare("
+                SELECT
+                    item_id,
+                    user_id,
+                    field_id,
+                    meta_value
+                FROM {$wpdb->prefix}frm_item_metas
+                LEFT JOIN {$wpdb->prefix}frm_items ON {$wpdb->prefix}frm_items.id = {$wpdb->prefix}frm_item_metas.item_id
+                WHERE {$wpdb->prefix}frm_items.form_id = %d
+            ", 58));
+            $entry_ids = array_values(array_unique(
+                array_map(function ($answer) {
+                    return $answer->item_id;
+                }, $answers)
+            ));
+            foreach ($entry_ids as $entry_id) {
+                $values = ['form_id' => 58, 'frm_user_id' => 0, 'item_meta' => []];
+                foreach ($answers as $answer) {
+                    if ($entry_id == $answer->item_id) {
+                        $values['frm_user_id'] = $answer->user_id;
+                        $values['item_meta'][$answer->field_id] = $answer->meta_value;
+                    }
+                }
+                elda($values);
+            }
         }
 ?>
         <div class="wrap">
@@ -79,8 +106,8 @@ add_action('admin_menu', function () {
                                     </h2>
                                 </div>
                                 <div class="inside">
-                                    <form>
-                                        <a href="https://docs.google.com/document/d/1pnufgElQvNdisyInMSZJDJG30T8LmkRhGW-BewgNmo0/edit">Detail Workflow</a>
+                                    <form name="post" action="" method="post" class="initial-form" enctype="multipart/form-data">
+                                        <!-- <a href="https://docs.google.com/document/d/1pnufgElQvNdisyInMSZJDJG30T8LmkRhGW-BewgNmo0/edit">Detail Workflow</a><br> -->
                                         <input type="submit" name="recalculate" class="button button-primary" value="Recalculate All">
                                     </form>
                                 </div>
