@@ -146,6 +146,8 @@ add_action('rest_api_init', function () {
 
 add_action('frm_pre_create_entry', 'elda', 30, 2);
 add_action('frm_pre_update_entry', 'elda', 10, 2);
+add_action('frm_after_create_entry', 'elda_profile', 30, 2);
+add_action('frm_after_update_entry', 'elda_profile', 10, 2);
 
 function elda($values)
 {
@@ -174,6 +176,45 @@ function elda($values)
     $values['item_meta'][2536] = elda_extract_user_ids($seller_profiles, $matching_seller_entry_ids);
 
     return $values;
+}
+
+function elda_profile($profile_id, $form_id)
+{
+    if (38 != $form_id) return true;
+    global $wpdb;
+    $selected_58_entries_answers = $wpdb->get_results($wpdb->prepare("
+        SELECT
+            item_id,
+            user_id,
+            field_id,
+            meta_value
+        FROM
+            {$wpdb->prefix}frm_item_metas
+            LEFT JOIN {$wpdb->prefix}frm_items ON {$wpdb->prefix}frm_items.id = {$wpdb->prefix}frm_item_metas.item_id
+        WHERE
+            {$wpdb->prefix}frm_items.form_id = %d
+            AND item_id IN (
+                SELECT
+                    DISTINCT item_id
+                FROM {$wpdb->prefix}frm_item_metas
+                WHERE field_id = 1086 AND meta_value = %s
+            )
+    ", 58, 'Submitted'));
+    $entry_ids = array_values(array_unique(
+        array_map(function ($answer) {
+            return $answer->item_id;
+        }, $selected_58_entries_answers)
+    ));
+    foreach ($entry_ids as $entry_id) {
+        $values = ['form_id' => 58, 'frm_user_id' => 0, 'item_meta' => []];
+        foreach ($selected_58_entries_answers as $answer) {
+            if ($entry_id == $answer->item_id) {
+                $values['frm_user_id'] = $answer->user_id;
+                $values['item_meta'][$answer->field_id] = $answer->meta_value;
+            }
+        }
+        elda($values);
+    }
 }
 
 function elda_collect_entries($form_id, $field_ids)
