@@ -28,6 +28,30 @@ define('ELDA_CSV_FILE', plugin_dir_path(__FILE__) . 'elda-active.csv');
 define('ELDA_CSV_FILE_SUBMIT', 'elda-submit');
 define('ELDA_LATEST_CSV_OPTION', 'elda-last-uploaded-csv');
 
+register_activation_hook(__FILE__, function () {
+    global $wpdb;
+    $is_exists = $wpdb->get_results($wpdb->prepare("
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = %s
+        AND column_name = %s
+    ", "{$wpdb->prefix}frm_item_metas", 'is_changed'));
+
+    if (empty($is_exists)) $wpdb->query("ALTER TABLE `{$wpdb->prefix}frm_item_metas` ADD `is_changed` TINYINT(1) NOT NULL DEFAULT '0', ADD INDEX `xuu3xX5K` (`is_changed`)");
+});
+
+register_deactivation_hook(__FILE__, function () {
+    global $wpdb;
+    $is_exists = $wpdb->get_results($wpdb->prepare("
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = %s
+        AND column_name = %s
+    ", "{$wpdb->prefix}frm_item_metas", 'is_changed'));
+
+    if (!empty($is_exists)) $wpdb->query("ALTER TABLE `wp_frm_item_metas` DROP `is_changed`");
+});
+
 add_action('admin_menu', function () {
     add_menu_page('Email List & Dashboard Access', 'Email List & Dashboard Access', 'administrator', __FILE__, function () {
         if ($_FILES) {
@@ -147,7 +171,8 @@ add_action('rest_api_init', function () {
 add_action('frm_pre_create_entry', 'elda', 30, 2);
 add_action('frm_pre_update_entry', 'elda', 10, 2);
 add_action('frm_after_create_entry', 'elda_profile', 30, 2);
-add_action('frm_after_update_entry', 'elda_profile', 10, 2);
+add_action('frm_after_update_entry', 'elda_profile_update', 10, 2);
+add_filter('frm_pre_update_entry', 'elda_record_changing_answer', 10, 2);
 
 function elda($values)
 {
@@ -214,6 +239,32 @@ function elda_profile($profile_id, $form_id)
             }
         }
         elda($values);
+    }
+}
+
+function elda_profile_update($profile_id, $form_id)
+{
+    if (38 != $form_id) return true;
+    $monitor_profile_fields = ['1421', '1422'];
+    foreach (elda_service_subscribers_1b_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
+    $monitor_profile_fields = array_unique($monitor_profile_fields);
+    $monitor_profile_fields = implode(',', $monitor_profile_fields);
+
+    global $wpdb;
+    $changed_field_ids = $wpdb->get_results($wpdb->prepare("
+        SELECT id
+        FROM {$wpdb->prefix}frm_item_metas
+        WHERE item_id = %d
+        AND field_id IN ($monitor_profile_fields)
+        AND is_changed = 1
+    ", $profile_id));
+
+    if (!empty($changed_field_ids)) {
+        $changed_field_ids = implode(',', array_map(function ($record) {
+            return $record->id;
+        }, $changed_field_ids));
+        $wpdb->update("{$wpdb->prefix}frm_item_metas", ['is_changed' => 0], ['item_id' => $profile_id], ['%d'], ['%d']);
+        elda_profile($profile_id, $form_id);
     }
 }
 
@@ -317,15 +368,15 @@ function elda_service_subscribers_1b_parse_csv()
         }, explode(' or ', strtolower($col[0]))));
         if (count($submitter_fields) < 1) continue;
 
-        $seller_fields = array_unique(array_map(function ($splitted_formula) {
+        $provider_fields = array_unique(array_map(function ($splitted_formula) {
             return explode(' ', explode('field', $splitted_formula)[1])[1];
         }, explode(' or ', strtolower($col[4]))));
-        if (count($seller_fields) < 1) continue;
+        if (count($provider_fields) < 1) continue;
 
         $csv_data[] = [
             'submitter_fields' => $submitter_fields,
             'operator' => $col[2],
-            'seller_fields' => $seller_fields
+            'provider_fields' => $provider_fields
         ];
     }
     return $csv_data;
@@ -346,7 +397,7 @@ function elda_service_subscribers_1b_compare_profile($csv_data, $seller_profile,
     $is_all_matched = true;
     foreach ($csv_data as $line) {
         $submitter_profile_value = elda_service_subscribers_1b_get_profile_value($line['submitter_fields'], $submitter_profile);
-        $seller_profile_value = elda_service_subscribers_1b_get_profile_value($line['seller_fields'], $seller_profile);
+        $seller_profile_value = elda_service_subscribers_1b_get_profile_value($line['provider_fields'], $seller_profile);
 
         switch ($line['operator']) {
             case 'included in:':
@@ -510,4 +561,40 @@ function seller_matching_seller_service_subscriber_2b($seller_profiles, $matchin
 function seller_matching_check_2595_2c()
 {
     return ["Yes"];
+}
+
+function elda_record_changing_answer($values, $entry_id)
+{
+    global $wpdb;
+    $field_to_monitor = [];
+
+    $monitor_profile_fields = ['1421', '1422'];
+    foreach (elda_service_subscribers_1b_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
+    $monitor_profile_fields = array_unique($monitor_profile_fields);
+    $field_to_monitor = array_merge($field_to_monitor, $monitor_profile_fields);
+    $field_to_monitor_imploded = implode(',', $field_to_monitor);
+
+    $previous_values = [];
+    $answers = $wpdb->get_results($wpdb->prepare("SELECT field_id, meta_value FROM {$wpdb->prefix}frm_item_metas WHERE item_id = %d AND field_id IN ($field_to_monitor_imploded)", $entry_id));
+    foreach ($answers as $answer) $previous_values[$answer->field_id] = $answer->meta_value;
+
+    foreach ($field_to_monitor as $field_id) {
+        if (!isset($values['item_meta'][$field_id])) continue;
+        $previous_value = $previous_values[$field_id];
+        if (empty($previous_value)) {
+            $wpdb->insert("{$wpdb->prefix}frm_item_metas", [
+                'field_id' => $field_id,
+                'item_id' => $entry_id,
+                'is_changed' => 1
+            ], ['%d', '%d', '%d']);
+        } else if ($values['item_meta'][$field_id] != $previous_value) {
+            $wpdb->update("{$wpdb->prefix}frm_item_metas", [
+                'is_changed' => 1
+            ], [
+                'field_id' => $field_id,
+                'item_id' => $entry_id,
+            ], ['%d'], ['%d', '%d']);
+        }
+    }
+    return $values;
 }
