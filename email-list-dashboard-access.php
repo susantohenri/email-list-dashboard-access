@@ -20,7 +20,6 @@
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
-use ACF\Brumann\Polyfill\Unserialize;
 
 define('ELDA_CSV_FILE_SAMPLE', plugin_dir_url(__FILE__) . 'elda-sample.csv');
 define('ELDA_CSV_FILE_ACTIVE', plugin_dir_url(__FILE__) . 'elda-active.csv');
@@ -28,7 +27,19 @@ define('ELDA_CSV_FILE', plugin_dir_path(__FILE__) . 'elda-active.csv');
 define('ELDA_CSV_FILE_SUBMIT', 'elda-submit');
 define('ELDA_LATEST_CSV_OPTION', 'elda-last-uploaded-csv');
 
-register_activation_hook(__FILE__, function () {
+register_activation_hook(__FILE__, 'elda_register_activation_hook');
+register_deactivation_hook(__FILE__, 'elda_register_deactivation_hook');
+add_action('admin_menu', 'elda_admin_menu');
+add_action('rest_api_init', 'elda_rest_api_init');
+
+add_action('frm_pre_create_entry', 'elda', 30, 2);
+add_action('frm_pre_update_entry', 'elda', 10, 2);
+add_action('frm_after_create_entry', 'elda_profile', 30, 2);
+add_action('frm_after_update_entry', 'elda_profile_update', 10, 2);
+add_filter('frm_pre_update_entry', 'elda_record_changing_answer', 10, 2);
+
+function elda_register_activation_hook()
+{
     global $wpdb;
     $is_exists = $wpdb->get_results($wpdb->prepare("
         SELECT COLUMN_NAME
@@ -38,9 +49,10 @@ register_activation_hook(__FILE__, function () {
     ", "{$wpdb->prefix}frm_item_metas", 'is_changed'));
 
     if (empty($is_exists)) $wpdb->query("ALTER TABLE `{$wpdb->prefix}frm_item_metas` ADD `is_changed` TINYINT(1) NOT NULL DEFAULT '0', ADD INDEX `xuu3xX5K` (`is_changed`)");
-});
+}
 
-register_deactivation_hook(__FILE__, function () {
+function elda_register_deactivation_hook()
+{
     global $wpdb;
     $is_exists = $wpdb->get_results($wpdb->prepare("
         SELECT COLUMN_NAME
@@ -50,9 +62,10 @@ register_deactivation_hook(__FILE__, function () {
     ", "{$wpdb->prefix}frm_item_metas", 'is_changed'));
 
     if (!empty($is_exists)) $wpdb->query("ALTER TABLE `wp_frm_item_metas` DROP `is_changed`");
-});
+}
 
-add_action('admin_menu', function () {
+function elda_admin_menu()
+{
     add_menu_page('Email List & Dashboard Access', 'Email List & Dashboard Access', 'administrator', __FILE__, function () {
         if ($_FILES) {
             if ($_FILES[ELDA_CSV_FILE_SUBMIT]['tmp_name']) {
@@ -143,9 +156,10 @@ add_action('admin_menu', function () {
         </div>
 <?php
     }, '');
-});
+}
 
-add_action('rest_api_init', function () {
+function elda_rest_api_init()
+{
     register_rest_route('email-list-dashboard-access/v1', '/download-sample', array(
         'methods' => 'GET',
         'permission_callback' => '__return_true',
@@ -166,13 +180,7 @@ add_action('rest_api_init', function () {
             readfile(ELDA_CSV_FILE_ACTIVE);
         }
     ));
-});
-
-add_action('frm_pre_create_entry', 'elda', 30, 2);
-add_action('frm_pre_update_entry', 'elda', 10, 2);
-add_action('frm_after_create_entry', 'elda_profile', 30, 2);
-add_action('frm_after_update_entry', 'elda_profile_update', 10, 2);
-add_filter('frm_pre_update_entry', 'elda_record_changing_answer', 10, 2);
+}
 
 function elda($values)
 {
