@@ -182,6 +182,59 @@ function elda_rest_api_init()
     ));
 }
 
+function elda_fn_main($entries_58, $entries_38, $entries_31)
+{
+    $results = [];
+    foreach (array_unique(array_map(function ($record) {
+        return $record->item_id;
+    }, $entries_58)) as $entry_58_id) {
+        $answer_to_update = [];
+        $provider_entries = $entries_31;
+        $seller_profiles = $entries_38;
+        $customer_rfp_submission = array_values(array_filter($entries_58, function ($answers) use ($entry_58_id) {
+            return $entry_58_id == $answers->item_id;
+        }));
+        $submitter_profile = array_values(array_filter($seller_profiles, function ($answer) use ($customer_rfp_submission) {
+            return $customer_rfp_submission[0]->user_id == $answer->user_id; // henrisusanto: please make sure
+        }));
+
+        $customer_rfp_submission_answers = [];
+        foreach ($customer_rfp_submission as $answer) $customer_rfp_submission_answers[$answer->field_id] = $answer->meta_value;
+
+        $matching_provider_entry_ids = [];
+        elda_service_subscribers_1a($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
+        elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids);
+        elda_custom_matched_1c($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[1088] = elda_custom_matched_1d($provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[1526] = elda_custom_matched_1e($provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[2594] = elda_check_2594_1f();
+        $answer_to_update[1532] = elda_extract_user_ids($provider_entries, $matching_provider_entry_ids);
+
+        $matching_seller_entry_ids = [];
+        elda_seller_service_subscriber_2a($customer_rfp_submission_answers, $seller_profiles, $matching_seller_entry_ids);
+        $answer_to_update[1530] = seller_matching_seller_service_subscriber_2b($seller_profiles, $matching_seller_entry_ids);
+        $answer_to_update[2595] = seller_matching_check_2595_2c();
+        $answer_to_update[2536] = elda_extract_user_ids($seller_profiles, $matching_seller_entry_ids);
+
+        foreach ($answer_to_update as $field_id => $meta_value) {
+            $current_answer = array_values(array_filter($customer_rfp_submission, function ($answers) use ($field_id) {
+                return $field_id == $answers->field_id;
+            }));
+            if (isset($current_answer[0])) {
+                $current_answer[0]->meta_value = $meta_value;
+                $results[] = $current_answer[0];
+            } else {
+                $results[] = (object)[
+                    'item_id' => $entry_58_id,
+                    'field_id' => $field_id,
+                    'meta_value' => $meta_value
+                ];
+            }
+        }
+    }
+    return $results;
+}
+
 function elda($values)
 {
     if (58 != $values['form_id']) return $values;
@@ -281,8 +334,9 @@ function elda_collect_entries($form_id, $field_ids)
     global $wpdb;
     return $wpdb->get_results($wpdb->prepare("
         SELECT
-            {$wpdb->prefix}frm_items.id
+            {$wpdb->prefix}frm_items.item_id
             , {$wpdb->prefix}frm_items.user_id
+            , {$wpdb->prefix}frm_item_metas.id answer_id
             , {$wpdb->prefix}frm_item_metas.field_id
             , {$wpdb->prefix}frm_item_metas.meta_value
         FROM {$wpdb->prefix}frm_items
@@ -308,7 +362,7 @@ function elda_extract_user_ids($entries, $entry_ids)
 function elda_service_subscribers_1a($submitted, $provider_entries, &$matching_provider_entry_ids)
 {
     foreach (array_unique(array_map(function ($answers) {
-        return $answers->id;
+        return $answers->item_id;
     }, $provider_entries)) as $provider_entry_id) {
         $checked_states = [];
 
@@ -452,7 +506,7 @@ function elda_service_subscribers_1b_array_string_converter($value, $convertedTo
 function elda_custom_matched_1c($submitted, $provider_entries, &$matching_provider_entry_ids)
 {
     foreach (array_unique(array_map(function ($answers) {
-        return $answers->id;
+        return $answers->item_id;
     }, $provider_entries)) as $provider_entry_id) {
         $answer_873 = array_values(array_filter($provider_entries, function ($answers) use ($provider_entry_id) {
             return $provider_entry_id == $answers->id && 873 == $answers->field_id;
@@ -514,7 +568,7 @@ function elda_seller_service_subscriber_2a($submitted, $seller_profiles, &$match
 		WHERE {$wpdb->prefix}frm_items.user_id = %d AND {$wpdb->prefix}frm_item_metas.field_id = %d
 	", $submitted[877], 1841));
     foreach (array_unique(array_map(function ($answers) {
-        return $answers->id;
+        return $answers->item_id;
     }, $seller_profiles)) as $seller_entry_id) {
 
         $is_1422_match_883 = false;
