@@ -202,20 +202,21 @@ function elda_fn_main($entries_58, $entries_38, $entries_31)
         foreach ($customer_rfp_submission as $answer) $customer_rfp_submission_answers[$answer->field_id] = $answer->meta_value;
 
         $matching_provider_entry_ids = [];
-        elda_service_subscribers_1a($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
-        elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids);
-        elda_custom_matched_1c($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
-        $answer_to_update[1088] = elda_custom_matched_1d($provider_entries, $matching_provider_entry_ids);
-        $answer_to_update[1526] = elda_custom_matched_1e($provider_entries, $matching_provider_entry_ids);
-        $answer_to_update[2594] = elda_check_2594_1f();
+        elda_fn_1a($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
+        elda_fn_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids);
+        elda_fn_1c($customer_rfp_submission_answers, $provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[1088] = elda_fn_1d($provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[1526] = elda_fn_1e($provider_entries, $matching_provider_entry_ids);
+        $answer_to_update[2594] = elda_fn_1f();
         $answer_to_update[1532] = elda_extract_user_ids($provider_entries, $matching_provider_entry_ids);
 
         $matching_seller_entry_ids = [];
-        elda_seller_service_subscriber_2a($customer_rfp_submission_answers, $seller_profiles, $matching_seller_entry_ids);
-        $answer_to_update[1530] = seller_matching_seller_service_subscriber_2b($seller_profiles, $matching_seller_entry_ids);
-        $answer_to_update[2595] = seller_matching_check_2595_2c();
+        elda_fn_2a($customer_rfp_submission_answers, $seller_profiles, $matching_seller_entry_ids);
+        $answer_to_update[1530] = elda_fn_2b($seller_profiles, $matching_seller_entry_ids);
+        $answer_to_update[2595] = elda_fn_2c();
         $answer_to_update[2536] = elda_extract_user_ids($seller_profiles, $matching_seller_entry_ids);
 
+        // build result
         foreach ($answer_to_update as $field_id => $meta_value) {
             $current_answer = array_values(array_filter($customer_rfp_submission, function ($answers) use ($field_id) {
                 return $field_id == $answers->field_id;
@@ -247,18 +248,18 @@ function elda($values)
     }));
 
     $matching_provider_entry_ids = [];
-    elda_service_subscribers_1a($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
-    elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids);
-    elda_custom_matched_1c($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
-    $values['item_meta'][1088] = elda_custom_matched_1d($provider_entries, $matching_provider_entry_ids);
-    $values['item_meta'][1526] = elda_custom_matched_1e($provider_entries, $matching_provider_entry_ids);
-    $values['item_meta'][2594] = elda_check_2594_1f();
+    elda_fn_1a($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
+    elda_fn_1b($seller_profiles, $submitter_profile, $provider_entries, $matching_provider_entry_ids);
+    elda_fn_1c($values['item_meta'], $provider_entries, $matching_provider_entry_ids);
+    $values['item_meta'][1088] = elda_fn_1d($provider_entries, $matching_provider_entry_ids);
+    $values['item_meta'][1526] = elda_fn_1e($provider_entries, $matching_provider_entry_ids);
+    $values['item_meta'][2594] = elda_fn_1f();
     $values['item_meta'][1532] = elda_extract_user_ids($provider_entries, $matching_provider_entry_ids);
 
     $matching_seller_entry_ids = [];
-    elda_seller_service_subscriber_2a($values['item_meta'], $seller_profiles, $matching_seller_entry_ids);
-    $values['item_meta'][1530] = seller_matching_seller_service_subscriber_2b($seller_profiles, $matching_seller_entry_ids);
-    $values['item_meta'][2595] = seller_matching_check_2595_2c();
+    elda_fn_2a($values['item_meta'], $seller_profiles, $matching_seller_entry_ids);
+    $values['item_meta'][1530] = elda_fn_2b($seller_profiles, $matching_seller_entry_ids);
+    $values['item_meta'][2595] = elda_fn_2c();
     $values['item_meta'][2536] = elda_extract_user_ids($seller_profiles, $matching_seller_entry_ids);
 
     return $values;
@@ -307,7 +308,7 @@ function elda_profile_update($profile_id, $form_id)
 {
     if (38 != $form_id) return true;
     $monitor_profile_fields = ['1421', '1422'];
-    foreach (elda_service_subscribers_1b_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
+    foreach (elda_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
     $monitor_profile_fields = array_unique($monitor_profile_fields);
     $monitor_profile_fields = implode(',', $monitor_profile_fields);
 
@@ -359,7 +360,7 @@ function elda_extract_user_ids($entries, $entry_ids)
     return implode(',', $matching_user_ids);
 }
 
-function elda_service_subscribers_1a($submitted, $provider_entries, &$matching_provider_entry_ids)
+function elda_fn_1a($submitted, $provider_entries, &$matching_provider_entry_ids)
 {
     foreach (array_unique(array_map(function ($answers) {
         return $answers->item_id;
@@ -387,20 +388,20 @@ function elda_service_subscribers_1a($submitted, $provider_entries, &$matching_p
     }
 }
 
-function elda_service_subscribers_1b($seller_profiles, $submitter_profile, $provider_entries, &$matching_provider_entry_ids)
+function elda_fn_1b($seller_profiles, $submitter_profile, $provider_entries, &$matching_provider_entry_ids)
 {
     if (count($submitter_profile) < 1) {
         $matching_provider_entry_ids = [];
         return false;
     }
-    $csv_data = elda_service_subscribers_1b_parse_csv();
+    $csv_data = elda_parse_csv();
     if (empty($csv_data)) return false;
 
     $matching_provider_entry_ids = array_values(array_filter(
         $matching_provider_entry_ids,
         function ($provider_entry_id) use ($provider_entries, $seller_profiles, $csv_data, $submitter_profile) {
 
-            $seller_id = elda_service_subscribers_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id);
+            $seller_id = elda_fn_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id);
             if (!$seller_id) return false;
 
             $seller_profile = array_values(array_filter($seller_profiles, function ($profile) use ($seller_id) {
@@ -408,12 +409,12 @@ function elda_service_subscribers_1b($seller_profiles, $submitter_profile, $prov
             }));
             if (count($seller_profile) < 1) return false;
 
-            return elda_service_subscribers_1b_compare_profile($csv_data, $seller_profile, $submitter_profile);
+            return elda_fn_1b_compare_profile($csv_data, $seller_profile, $submitter_profile);
         }
     ));
 }
 
-function elda_service_subscribers_1b_parse_csv()
+function elda_parse_csv()
 {
     $csv_data = [];
     if (!file_exists(ELDA_CSV_FILE)) return $csv_data;
@@ -444,7 +445,7 @@ function elda_service_subscribers_1b_parse_csv()
     return $csv_data;
 }
 
-function elda_service_subscribers_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id)
+function elda_fn_1b_extract_user_id_from_provider_entry_id($provider_entries, $provider_entry_id)
 {
     $user_id = false;
     $matching_answers = array_values(array_filter($provider_entries, function ($answer) use ($provider_entry_id) {
@@ -454,24 +455,24 @@ function elda_service_subscribers_1b_extract_user_id_from_provider_entry_id($pro
     return $user_id;
 }
 
-function elda_service_subscribers_1b_compare_profile($csv_data, $seller_profile, $submitter_profile)
+function elda_fn_1b_compare_profile($csv_data, $seller_profile, $submitter_profile)
 {
     $is_all_matched = true;
     foreach ($csv_data as $line) {
-        $submitter_profile_value = elda_service_subscribers_1b_get_profile_value($line['submitter_fields'], $submitter_profile);
-        $seller_profile_value = elda_service_subscribers_1b_get_profile_value($line['provider_fields'], $seller_profile);
+        $submitter_profile_value = elda_fn_1b_get_profile_value($line['submitter_fields'], $submitter_profile);
+        $seller_profile_value = elda_fn_1b_get_profile_value($line['provider_fields'], $seller_profile);
 
         switch ($line['operator']) {
             case 'included in:':
             case 'included in OR equals:':
-                $submitter_profile_value = elda_service_subscribers_1b_array_string_converter($submitter_profile_value, 'string');
-                $seller_profile_value = elda_service_subscribers_1b_array_string_converter($seller_profile_value, 'array');
+                $submitter_profile_value = elda_fn_1b_array_string_converter($submitter_profile_value, 'string');
+                $seller_profile_value = elda_fn_1b_array_string_converter($seller_profile_value, 'array');
                 $is_all_matched &= in_array("No Preference", $seller_profile_value) || in_array($submitter_profile_value, $seller_profile_value);
                 break;
             case 'includes:':
             case 'equals "No Preference" OR includes:':
-                $submitter_profile_value = elda_service_subscribers_1b_array_string_converter($submitter_profile_value, 'array');
-                $seller_profile_value = elda_service_subscribers_1b_array_string_converter($seller_profile_value, 'string');
+                $submitter_profile_value = elda_fn_1b_array_string_converter($submitter_profile_value, 'array');
+                $seller_profile_value = elda_fn_1b_array_string_converter($seller_profile_value, 'string');
                 $is_all_matched &= in_array("No Preference", $submitter_profile_value) || in_array($seller_profile_value, $submitter_profile_value);
                 break;
             default: // wrong formula
@@ -482,7 +483,7 @@ function elda_service_subscribers_1b_compare_profile($csv_data, $seller_profile,
     return $is_all_matched;
 }
 
-function elda_service_subscribers_1b_get_profile_value($fields, $profile)
+function elda_fn_1b_get_profile_value($fields, $profile)
 {
     $field_value = [];
 
@@ -497,13 +498,13 @@ function elda_service_subscribers_1b_get_profile_value($fields, $profile)
     return $field_value;
 }
 
-function elda_service_subscribers_1b_array_string_converter($value, $convertedTo)
+function elda_fn_1b_array_string_converter($value, $convertedTo)
 {
     if ('array' === $convertedTo) return is_array($value) ? $value : [$value];
     else if ('string' === $convertedTo) return is_array($value) ? $value[0] : $value;
 }
 
-function elda_custom_matched_1c($submitted, $provider_entries, &$matching_provider_entry_ids)
+function elda_fn_1c($submitted, $provider_entries, &$matching_provider_entry_ids)
 {
     foreach (array_unique(array_map(function ($answers) {
         return $answers->item_id;
@@ -527,7 +528,7 @@ function elda_custom_matched_1c($submitted, $provider_entries, &$matching_provid
     }
 }
 
-function elda_custom_matched_1d($provider_entries, $matching_provider_entry_ids)
+function elda_fn_1d($provider_entries, $matching_provider_entry_ids)
 {
     $provider_emails = [];
     foreach ($matching_provider_entry_ids as $matching_entry_id) {
@@ -540,7 +541,7 @@ function elda_custom_matched_1d($provider_entries, $matching_provider_entry_ids)
     return implode(';', $provider_emails);
 }
 
-function elda_custom_matched_1e($provider_entries, $matching_provider_entry_ids)
+function elda_fn_1e($provider_entries, $matching_provider_entry_ids)
 {
     $provider_emails = [];
     foreach ($matching_provider_entry_ids as $matching_entry_id) {
@@ -553,12 +554,12 @@ function elda_custom_matched_1e($provider_entries, $matching_provider_entry_ids)
     return implode(';', $provider_emails);
 }
 
-function elda_check_2594_1f()
+function elda_fn_1f()
 {
     return ["Yes"];
 }
 
-function elda_seller_service_subscriber_2a($submitted, $seller_profiles, &$matching_seller_entry_ids)
+function elda_fn_2a($submitted, $seller_profiles, &$matching_seller_entry_ids)
 {
     global $wpdb;
     $sellers_1841 = $wpdb->get_var($wpdb->prepare("
@@ -607,7 +608,7 @@ function elda_seller_service_subscriber_2a($submitted, $seller_profiles, &$match
     }
 }
 
-function seller_matching_seller_service_subscriber_2b($seller_profiles, $matching_seller_entry_ids)
+function elda_fn_2b($seller_profiles, $matching_seller_entry_ids)
 {
     $seller_emails = [];
     foreach ($matching_seller_entry_ids as $matching_entry_id) {
@@ -620,7 +621,7 @@ function seller_matching_seller_service_subscriber_2b($seller_profiles, $matchin
     return implode(';', $seller_emails);
 }
 
-function seller_matching_check_2595_2c()
+function elda_fn_2c()
 {
     return ["Yes"];
 }
@@ -631,7 +632,7 @@ function elda_record_changing_answer($values, $entry_id)
     $field_to_monitor = [];
 
     $monitor_profile_fields = ['1421', '1422'];
-    foreach (elda_service_subscribers_1b_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
+    foreach (elda_parse_csv() as $line) $monitor_profile_fields = array_merge($monitor_profile_fields, $line['provider_fields']);
     $monitor_profile_fields = array_unique($monitor_profile_fields);
     $field_to_monitor = array_merge($field_to_monitor, $monitor_profile_fields);
     $field_to_monitor_imploded = implode(',', $field_to_monitor);
