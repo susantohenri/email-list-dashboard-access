@@ -357,9 +357,9 @@ function elda_profile_update($profile_id, $form_id)
 function elda_collect_entries($form_id, $field_ids)
 {
     global $wpdb;
-    return $wpdb->get_results($wpdb->prepare("
+    $records = $wpdb->get_results($wpdb->prepare("
         SELECT
-            {$wpdb->prefix}frm_items.item_id
+            {$wpdb->prefix}frm_items.id item_id
             , {$wpdb->prefix}frm_items.user_id
             , {$wpdb->prefix}frm_item_metas.id answer_id
             , {$wpdb->prefix}frm_item_metas.field_id
@@ -369,6 +369,7 @@ function elda_collect_entries($form_id, $field_ids)
         WHERE {$wpdb->prefix}frm_items.form_id = %d
         AND {$wpdb->prefix}frm_item_metas.field_id IN ($field_ids)
     ", $form_id));
+    return $records;
 }
 
 function elda_extract_user_ids($entries, $entry_ids)
