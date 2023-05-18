@@ -207,6 +207,31 @@ function elda_pre_create_58($values)
     return $values;
 }
 
+function elda_pre_update_58($values)
+{
+    if (58 != $values['form_id']) return $values;
+    if (!isset($values['item_meta'][880]) || 'Single Service' !== $values['item_meta'][880]) return $values;
+
+    $entries_58 = [];
+    foreach ($values['item_meta'] as $field_id => $meta_value) {
+        $entries_58[] = (object) [
+            'item_id' => (int) $values['id'],
+            'user_id' => $values['frm_user_id'],
+            'answer_id' => 0,
+            'field_id' => $field_id,
+            'meta_value' => $meta_value
+        ];
+    }
+
+    $entries_31 = elda_collect_entries(31, '727, 728, 873, 870, 729');
+    $entries_38 = elda_collect_entries(38, '563,1422,1421,2535,1858,814,812,813,807,808,809,792,793,794,795,796,951,550,551,569,552,559,560,952,556,557,558');
+
+    foreach (elda_fn_main($entries_58, $entries_38, $entries_31) as $field_to_change) {
+        $values[$field_to_change->field_id] = $field_to_change->meta_value;
+    }
+    return $values;
+}
+
 function elda_fn_main($entries_58, $entries_38, $entries_31)
 {
     $results = [];
