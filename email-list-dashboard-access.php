@@ -185,6 +185,7 @@ function elda_rest_api_init()
 function elda_pre_create_58($values)
 {
     if (58 != $values['form_id']) return $values;
+    if (!isset($values['item_meta'][880]) || 'Single Service' !== $values['item_meta'][880]) return $values;
 
     $entries_58 = [];
     foreach ($values['item_meta'] as $field_id => $meta_value) {
@@ -219,7 +220,7 @@ function elda_fn_main($entries_58, $entries_38, $entries_31)
             return $entry_58_id == $answers->item_id;
         }));
         $submitter_profile = array_values(array_filter($seller_profiles, function ($answer) use ($customer_rfp_submission) {
-            return $customer_rfp_submission[0]->user_id == $answer->user_id; // henrisusanto: please make sure
+            return $customer_rfp_submission[0]->user_id == $answer->user_id;
         }));
 
         $customer_rfp_submission_answers = [];
