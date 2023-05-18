@@ -391,26 +391,25 @@ function elda_fn_1a($submitted, $provider_entries, &$matching_provider_entry_ids
             return $provider_entry_id == $answers->item_id && 724 == $answers->field_id;
         }));
         $answer_724 = !isset($answer_724[0]) ? null : $answer_724[0]->meta_value;
+        $is_match_724_to_883 = $answer_724 == $submitted['883'];
 
-        $checked_states = [];
+        $provider_checked_states = [];
         /*
 		$answer_727 = array_values(array_filter($provider_entries, function ($answers) use ($provider_entry_id) {
 			return $provider_entry_id == $answers->item_id && 727 == $answers->field_id;
 		}));
-		if (isset($answer_727[0])) $checked_states = array_merge($checked_states, @unserialize($answer_727[0]->meta_value) ? unserialize($answer_727[0]->meta_value) : [$answer_727[0]->meta_value]);
+		if (isset($answer_727[0])) $provider_checked_states = array_merge($provider_checked_states, @unserialize($answer_727[0]->meta_value) ? unserialize($answer_727[0]->meta_value) : [$answer_727[0]->meta_value]);
 		*/
 
         $answer_728 = array_values(array_filter($provider_entries, function ($answers) use ($provider_entry_id) {
             return $provider_entry_id == $answers->item_id && 728 == $answers->field_id;
         }));
-        if (isset($answer_728[0])) $checked_states = array_merge($checked_states, @unserialize($answer_728[0]->meta_value) ? unserialize($answer_728[0]->meta_value) : [$answer_728[0]->meta_value]);
+        if (isset($answer_728[0])) $provider_checked_states = array_merge($provider_checked_states, @unserialize($answer_728[0]->meta_value) ? unserialize($answer_728[0]->meta_value) : [$answer_728[0]->meta_value]);
 
-        if (isset($submitted[885])) if (in_array($submitted[885], $checked_states)) $matching_provider_entry_ids[] = $provider_entry_id;
-        if (isset($submitted[884])) {
-            if (is_array($submitted[884])) {
-                if (!empty(array_intersect($submitted[884], $checked_states))) $matching_provider_entry_ids[] = $provider_entry_id;
-            } else if (in_array($submitted[884], $checked_states)) $matching_provider_entry_ids[] = $provider_entry_id;
-        }
+        $submitted_checked_states = array_merge(explode(',', $submitted[884]), explode(',', $submitted[885]));
+        $is_match_884_885_to_727_728 = !empty(array_intersect($provider_checked_states, $submitted_checked_states));
+
+        if ($is_match_724_to_883 && $is_match_884_885_to_727_728) $matching_provider_entry_ids[] = $provider_entry_id;
     }
 }
 
